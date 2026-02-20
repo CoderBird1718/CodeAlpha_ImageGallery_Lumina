@@ -1,224 +1,288 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   /* ═══════════════════════════════════════════
-     MOBILE NAVIGATION (Fully Responsive Safe)
+     MOBILE NAV
   ═══════════════════════════════════════════ */
-
   const toggle = document.querySelector(".menu-toggle");
   const nav    = document.querySelector(".nav-links");
 
-  if (toggle && nav) {
-
-    toggle.addEventListener("click", (e) => {
+  if (toggle) {
+    toggle.addEventListener("click", e => {
       e.stopPropagation();
       nav.classList.toggle("active");
-      document.body.classList.toggle("nav-open");
     });
-
-    // Close when clicking outside
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest(".navbar")) {
-        nav.classList.remove("active");
-        document.body.classList.remove("nav-open");
-      }
-    });
-
-    // Close on resize (important for responsiveness)
-    window.addEventListener("resize", () => {
-      if (window.innerWidth > 768) {
-        nav.classList.remove("active");
-        document.body.classList.remove("nav-open");
-      }
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".navbar")) nav.classList.remove("active");
     });
   }
 
 
   /* ═══════════════════════════════════════════
-     GALLERY SECTION (Only if Exists)
+     GALLERY LOGIC
+  ═══════════════════════════════════════════ */
+  const filterBtns = document.querySelectorAll(".filter-btn");
+  const items      = Array.from(document.querySelectorAll(".gallery-item"));
+
+  if (!items.length) return;
+
+  // visible[i] = true means shown by current filter
+  const visible = new Array(items.length).fill(true);
+  let currentIndex = 0;
+
+  const likedItems = new Set();
+  const savedItems = new Set();
+
+
+  /* ── Build overlay + action buttons on each card ── */
+  items.forEach((item, index) => {
+
+    // Overlay
+    const overlay = document.createElement("div");
+    overlay.className = "item-overlay";
+    overlay.innerHTML = `<span class="overlay-label">View Artwork</span>`;
+    item.appendChild(overlay);
+
+    // Action buttons
+    const actions = document.createElement("div");
+    actions.className = "item-actions";
+    actions.innerHTML = `
+      <button class="action-btn like-btn" title="Like" aria-label="Like">♡</button>
+      <button class="action-btn save-btn" title="Save" aria-label="Save">🔖</button>
+    `;
+    item.appendChild(actions);
+
+    /* Like */
+    const likeBtn = actions.querySelector(".like-btn");
+    likeBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      createRipple(likeBtn, e);
+      if (likedItems.has(index)) {
+        likedItems.delete(index);
+        likeBtn.classList.remove("liked");
+        likeBtn.textContent = "♡";
+      } else {
+        likedItems.add(index);
+        likeBtn.classList.add("liked");
+        likeBtn.textContent = "♥";
+        likeBtn.classList.remove("pulse");
+        void likeBtn.offsetWidth;
+        likeBtn.classList.add("pulse");
+      }
+    });
+
+    /* Save */
+    const saveBtn = actions.querySelector(".save-btn");
+    saveBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      createRipple(saveBtn, e);
+      if (savedItems.has(index)) {
+        savedItems.delete(index);
+        saveBtn.classList.remove("saved");
+        saveBtn.textContent = "🔖";
+      } else {
+        savedItems.add(index);
+        saveBtn.classList.add("saved");
+        saveBtn.textContent = "⭐";
+        saveBtn.classList.remove("pulse");
+        void saveBtn.offsetWidth;
+        saveBtn.classList.add("pulse");
+      }
+    });
+
+    /* Open lightbox */
+    item.addEventListener("click", () => {
+      currentIndex = index;
+      openLightbox();
+    });
+
+    /* Touch ripple on card */
+    item.addEventListener("touchstart", e => {
+      createCardRipple(item, e.touches[0]);
+    }, { passive: true });
+  });
+
+
+  /* ── FILTER ── */
+  filterBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      filterBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const filter = btn.dataset.filter;
+
+      items.forEach((item, i) => {
+        const match = filter === "all" || item.dataset.category === filter;
+        visible[i] = match;
+        if (match) {
+          item.style.display = "";
+          // Force reflow then animate in
+          requestAnimationFrame(() => {
+            item.classList.remove("hide");
+            item.classList.add("show");
+          });
+        } else {
+          item.classList.add("hide");
+          item.classList.remove("show");
+          setTimeout(() => {
+            if (item.classList.contains("hide")) item.style.display = "none";
+          }, 420);
+        }
+      });
+    });
+  });
+
+
+  /* ═══════════════════════════════════════════
+     LIGHTBOX
   ═══════════════════════════════════════════ */
 
-  const items      = Array.from(document.querySelectorAll(".gallery-item"));
-  const filterBtns = document.querySelectorAll(".filter-btn");
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let isNavigating = false;
 
-  if (items.length > 0) {
+  function getVisibleIndices() {
+    return items.reduce((acc, _, i) => {
+      if (visible[i]) acc.push(i);
+      return acc;
+    }, []);
+  }
 
-    let currentIndex = 0;
-    let visible = new Array(items.length).fill(true);
-    let isNavigating = false;
+  function openLightbox() {
+    const visibleIndices = getVisibleIndices();
+    const posInVisible   = visibleIndices.indexOf(currentIndex);
+    const total          = visibleIndices.length;
 
-    const likedItems = new Set();
-    const savedItems = new Set();
+    const box = document.createElement("div");
+    box.className = "lightbox";
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
 
-    /* ───────────── Build Card UI ───────────── */
+    const imgSrc  = items[currentIndex].querySelector("img").src;
+    const altText = items[currentIndex].querySelector("img").alt || "";
 
-    items.forEach((item, index) => {
+    box.innerHTML = `
+      <div class="lightbox-counter">${posInVisible + 1} / ${total}</div>
+      <button class="lb-close" aria-label="Close">&#215;</button>
+      <button class="lb-prev"  aria-label="Previous">&#8249;</button>
+      <img src="${imgSrc}" alt="${altText}">
+      <button class="lb-next"  aria-label="Next">&#8250;</button>
+      <div class="swipe-hint">swipe or use arrow keys</div>
+    `;
 
-      /* Overlay */
-      const overlay = document.createElement("div");
-      overlay.className = "item-overlay";
-      overlay.innerHTML = `<span class="overlay-label">View Artwork</span>`;
-      item.appendChild(overlay);
+    document.body.appendChild(box);
+    document.body.style.overflow = "hidden";
 
-      /* Action Buttons */
-      const actions = document.createElement("div");
-      actions.className = "item-actions";
-      actions.innerHTML = `
-        <button class="action-btn like-btn" aria-label="Like">♡</button>
-        <button class="action-btn save-btn" aria-label="Save">🔖</button>
-      `;
-      item.appendChild(actions);
+    const closeBtn = box.querySelector(".lb-close");
+    const prevBtn  = box.querySelector(".lb-prev");
+    const nextBtn  = box.querySelector(".lb-next");
 
-      const likeBtn = actions.querySelector(".like-btn");
-      const saveBtn = actions.querySelector(".save-btn");
+    closeBtn.addEventListener("click", e => { e.stopPropagation(); closeLightbox(box); });
+    prevBtn.addEventListener("click",  e => { e.stopPropagation(); navigate(-1, box); });
+    nextBtn.addEventListener("click",  e => { e.stopPropagation(); navigate(1, box); });
 
-      likeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleState(index, likeBtn, likedItems, "♡", "♥", "liked");
-      });
-
-      saveBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleState(index, saveBtn, savedItems, "🔖", "⭐", "saved");
-      });
-
-      item.addEventListener("click", () => {
-        currentIndex = index;
-        openLightbox();
-      });
+    /* Backdrop click — only close if clicking the dark backdrop itself */
+    box.addEventListener("click", e => {
+      if (e.target === box) closeLightbox(box);
     });
 
-    function toggleState(index, btn, set, offChar, onChar, className) {
-      if (set.has(index)) {
-        set.delete(index);
-        btn.textContent = offChar;
-        btn.classList.remove(className);
-      } else {
-        set.add(index);
-        btn.textContent = onChar;
-        btn.classList.add(className);
-      }
-    }
+    /* Touch swipe */
+    box.addEventListener("touchstart", e => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
 
+    box.addEventListener("touchend", e => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+      if (Math.abs(dx) > 50 && dy < 80) navigate(dx < 0 ? 1 : -1, box);
+    });
 
-    /* ───────────── FILTER SYSTEM ───────────── */
+    /* Keyboard */
+    const onKey = e => {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); navigate(1, box); }
+      if (e.key === "ArrowLeft"  || e.key === "ArrowUp")   { e.preventDefault(); navigate(-1, box); }
+      if (e.key === "Escape") closeLightbox(box);
+    };
+    document.addEventListener("keydown", onKey);
+    box._cleanup = () => document.removeEventListener("keydown", onKey);
 
-    filterBtns.forEach(btn => {
-      btn.addEventListener("click", () => {
+    // Focus trap
+    closeBtn.focus();
+  }
 
-        filterBtns.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
+  function navigate(dir, box) {
+    if (isNavigating) return;
+    isNavigating = true;
 
-        const filter = btn.dataset.filter;
+    const visibleIndices = getVisibleIndices();
+    if (visibleIndices.length < 2) { isNavigating = false; return; }
 
-        items.forEach((item, i) => {
-          const match = filter === "all" || item.dataset.category === filter;
-          visible[i] = match;
+    let pos = visibleIndices.indexOf(currentIndex);
+    pos = (pos + dir + visibleIndices.length) % visibleIndices.length;
+    currentIndex = visibleIndices[pos];
 
-          if (match) {
-            item.style.display = "";
-            requestAnimationFrame(() => {
-              item.classList.remove("hide");
-              item.classList.add("show");
-            });
-          } else {
-            item.classList.add("hide");
-            item.classList.remove("show");
-            setTimeout(() => {
-              if (item.classList.contains("hide")) {
-                item.style.display = "none";
-              }
-            }, 400);
-          }
+    const img = box.querySelector("img");
+    const slideOut = dir > 0 ? "-30px" : "30px";
+    const slideIn  = dir > 0 ? "30px"  : "-30px";
+
+    // Slide out
+    img.style.transition = "opacity 0.18s ease, transform 0.18s ease";
+    img.style.opacity    = "0";
+    img.style.transform  = `translateX(${slideOut})`;
+
+    setTimeout(() => {
+      img.src       = items[currentIndex].querySelector("img").src;
+      img.alt       = items[currentIndex].querySelector("img").alt || "";
+      img.style.transition = "none";
+      img.style.transform  = `translateX(${slideIn})`;
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          img.style.transition = "opacity 0.22s ease, transform 0.22s ease";
+          img.style.opacity    = "1";
+          img.style.transform  = "translateX(0)";
+          isNavigating = false;
         });
-
-      });
-    });
-
-
-    /* ═══════════════════════════════════════════
-       LIGHTBOX
-    ═══════════════════════════════════════════ */
-
-    function getVisibleIndices() {
-      return items
-        .map((_, i) => visible[i] ? i : null)
-        .filter(i => i !== null);
-    }
-
-    function openLightbox() {
-
-      const visibleIndices = getVisibleIndices();
-      if (!visibleIndices.length) return;
-
-      const pos = visibleIndices.indexOf(currentIndex);
-      const total = visibleIndices.length;
-
-      const box = document.createElement("div");
-      box.className = "lightbox";
-
-      const imgSrc = items[currentIndex].querySelector("img").src;
-
-      box.innerHTML = `
-        <div class="lightbox-counter">${pos + 1} / ${total}</div>
-        <button class="lb-close">&#215;</button>
-        <button class="lb-prev">&#8249;</button>
-        <img src="${imgSrc}">
-        <button class="lb-next">&#8250;</button>
-      `;
-
-      document.body.appendChild(box);
-      document.body.style.overflow = "hidden";
-
-      box.querySelector(".lb-close").onclick = () => closeLightbox(box);
-      box.querySelector(".lb-prev").onclick  = () => navigate(-1, box);
-      box.querySelector(".lb-next").onclick  = () => navigate(1, box);
-
-      box.addEventListener("click", e => {
-        if (e.target === box) closeLightbox(box);
       });
 
-      document.addEventListener("keydown", keyHandler);
+      // Update counter
+      box.querySelector(".lightbox-counter").textContent =
+        `${pos + 1} / ${visibleIndices.length}`;
+    }, 190);
+  }
 
-      function keyHandler(e) {
-        if (e.key === "ArrowRight") navigate(1, box);
-        if (e.key === "ArrowLeft")  navigate(-1, box);
-        if (e.key === "Escape")     closeLightbox(box);
-      }
-
-      box._cleanup = () => {
-        document.removeEventListener("keydown", keyHandler);
-      };
-    }
-
-    function navigate(dir, box) {
-      if (isNavigating) return;
-      isNavigating = true;
-
-      const visibleIndices = getVisibleIndices();
-      let pos = visibleIndices.indexOf(currentIndex);
-      pos = (pos + dir + visibleIndices.length) % visibleIndices.length;
-      currentIndex = visibleIndices[pos];
-
-      const img = box.querySelector("img");
-      img.style.opacity = "0";
-
-      setTimeout(() => {
-        img.src = items[currentIndex].querySelector("img").src;
-        img.style.opacity = "1";
-        isNavigating = false;
-
-        box.querySelector(".lightbox-counter").textContent =
-          `${pos + 1} / ${visibleIndices.length}`;
-
-      }, 200);
-    }
-
-    function closeLightbox(box) {
-      if (box._cleanup) box._cleanup();
+  function closeLightbox(box) {
+    if (box._cleanup) box._cleanup();
+    box.style.transition = "opacity 0.22s ease";
+    box.style.opacity    = "0";
+    setTimeout(() => {
       box.remove();
       document.body.style.overflow = "";
-    }
+    }, 230);
+  }
 
+
+  /* ═══════════════════════════════════════════
+     RIPPLE HELPERS
+  ═══════════════════════════════════════════ */
+
+  function createRipple(btn, e) {
+    const rect = btn.getBoundingClientRect();
+    const r    = document.createElement("span");
+    r.className = "ripple";
+    const size = 32;
+    r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - rect.left - size/2}px;top:${e.clientY - rect.top - size/2}px;`;
+    btn.appendChild(r);
+    r.addEventListener("animationend", () => r.remove());
+  }
+
+  function createCardRipple(card, touch) {
+    const rect = card.getBoundingClientRect();
+    const r    = document.createElement("span");
+    r.className = "ripple";
+    const size = 90;
+    r.style.cssText = `width:${size}px;height:${size}px;left:${touch.clientX - rect.left - size/2}px;top:${touch.clientY - rect.top - size/2}px;position:absolute;background:rgba(212,175,55,0.15);z-index:10;`;
+    card.appendChild(r);
+    r.addEventListener("animationend", () => r.remove());
   }
 
 });
