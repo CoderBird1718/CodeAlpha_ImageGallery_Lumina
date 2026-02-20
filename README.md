@@ -6,7 +6,7 @@ A refined, immersive digital art gallery built with pure HTML, CSS, and vanilla 
 
 ---
 
-##  Live Preview : 
+##  Live Preview : https://coderbird1718.github.io/CodeAlpha_ImageGallery_Lumina/
 ---
 
 ##  Features
