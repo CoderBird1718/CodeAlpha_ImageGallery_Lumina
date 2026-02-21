@@ -1,4 +1,4 @@
-# ✦ LUMINA — Premium Visual Gallery
+#  LUMINA — Premium Visual Gallery
 
 > *Where Light Meets Imagination*
 
@@ -23,7 +23,7 @@ https://coderbird1718.github.io/CodeAlpha_ImageGallery_Lumina/
 - **Hover effects** — card lifts, image zooms, gold shimmer border materializes, overlay label fades in
 - **Action buttons** appear on hover (always visible on touch devices)
   - **♡ Like** — toggles red heart with pulse animation
-  - ** Save / Favorite** — Pinterest-style bookmark that turns gold star
+  - **Save / Favorite** — Pinterest-style bookmark that turns gold star
 
 ###  Lightbox
 
