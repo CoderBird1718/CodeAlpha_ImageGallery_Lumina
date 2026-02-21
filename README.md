@@ -4,10 +4,8 @@
 
 A refined, immersive digital art gallery built with pure HTML, CSS, and vanilla JavaScript. LUMINA combines a dark golden-marble aesthetic with fluid animations, cinematic lightbox navigation, and Pinterest-style interaction — all with zero dependencies.
 
----
-
-##  Live Preview : https://coderbird1718.github.io/CodeAlpha_ImageGallery_Lumina/
----
+##  Live Preview 
+https://coderbird1718.github.io/CodeAlpha_ImageGallery_Lumina/
 
 ##  Features
 
@@ -45,7 +43,6 @@ A refined, immersive digital art gallery built with pure HTML, CSS, and vanilla 
 - **Navigation debounce** — prevents animation corruption on rapid clicks
 - **Mobile menu** — slides in from right with gold border, closes on outside tap
 
----
 
 ##  File Structure
 
